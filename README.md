@@ -1,1 +1,4 @@
 # projekalgosia
+pointer
+searching
+sorting
