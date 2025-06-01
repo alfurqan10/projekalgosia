@@ -1,0 +1,181 @@
+#include <iostream>
+#include <string>
+#include <stack>
+
+using namespace std;
+
+struct Node {
+    string nama;
+    string jabatan;
+    int kerugian; 
+    Node* left;
+    Node* right;
+};
+
+Node* root = NULL;
+
+// Stack untuk undo
+stack<string> aksiTerakhir;        // "tambah" atau "hapus"
+stack<Node*> dataTerakhir;         // simpan salinan data pelaku
+
+Node* buatNode(string nama, string jabatan, int kerugian) {
+    Node* baru = new Node;
+    baru->nama = nama;
+    baru->jabatan = jabatan;
+    baru->kerugian = kerugian;
+    baru->left = NULL;
+    baru->right = NULL;
+    return baru;
+}
+
+Node* tambah(Node* root, Node* baru) {
+    if (root == NULL) return baru;
+    if (baru->nama < root->nama)
+        root->left = tambah(root->left, baru);
+    else if (baru->nama > root->nama)
+        root->right = tambah(root->right, baru);
+    return root;
+}
+
+void tampilInorder(Node* root) {
+    if (root == NULL) return;
+    tampilInorder(root->left);
+    cout << "Nama     : " << root->nama << endl;
+    cout << "Jabatan  : " << root->jabatan << endl;
+    cout << "Kerugian : Rp " << root->kerugian << endl;
+    cout << "------------------------" << endl;
+    tampilInorder(root->right);
+}
+
+Node* cariMin(Node* node) {
+    while (node->left != NULL)
+        node = node->left;
+    return node;
+}
+
+Node* hapus(Node* root, string nama, Node*& hapusData) {
+    if (root == NULL) return NULL;
+
+    if (nama < root->nama)
+        root->left = hapus(root->left, nama, hapusData);
+    else if (nama > root->nama)
+        root->right = hapus(root->right, nama, hapusData);
+    else {
+        hapusData = new Node(*root); // Salin data untuk undo
+
+        if (root->left == NULL) {
+            Node* temp = root->right;
+            delete root;
+            return temp;
+        } else if (root->right == NULL) {
+            Node* temp = root->left;
+            delete root;
+            return temp;
+        }
+
+        Node* pengganti = cariMin(root->right);
+        root->nama = pengganti->nama;
+        root->jabatan = pengganti->jabatan;
+        root->kerugian = pengganti->kerugian;
+        root->right = hapus(root->right, pengganti->nama, hapusData);
+    }
+
+    return root;
+}
+
+void undo() {
+    if (aksiTerakhir.empty()) {
+        cout << "Tidak ada aksi yang bisa di-undo.\n";
+        return;
+    }
+
+    string aksi = aksiTerakhir.top(); aksiTerakhir.pop();
+    Node* data = dataTerakhir.top(); dataTerakhir.pop();
+
+    if (aksi == "tambah") {
+        Node* dummy = NULL;
+        root = hapus(root, data->nama, dummy);
+        cout << "Undo: data " << data->nama << " telah dihapus.\n";
+        delete data;
+    } else if (aksi == "hapus") {
+        root = tambah(root, data);
+        cout << "Undo: data " << data->nama << " dikembalikan.\n";
+    }
+}
+
+int main() {
+    int pilih;
+
+    do {
+        cout << "\n=== APLIKASI KORUPSI ===\n";
+        cout << "1. Tambah Data\n";
+        cout << "2. Tampilkan Semua\n";
+        cout << "3. Hapus Data\n";
+        cout << "4. Undo Aksi Terakhir\n";
+        cout << "5. Keluar\n";
+        cout << "Pilih: ";
+        cin >> pilih;
+        cin.ignore();
+
+        if (pilih == 1) {
+            string nama, jabatan;
+            int kerugian;
+            cout << "Nama     : "; getline(cin, nama);
+            cout << "Jabatan  : "; getline(cin, jabatan);
+
+            cout << "Kerugian : Rp ";
+            while (!(cin >> kerugian)) {
+                cout << "Input harus berupa angka! Masukkan ulang kerugian: Rp ";
+                cin.clear();
+                cin.ignore(1000, '\n');
+            }
+            cin.ignore();
+
+            Node* baru = buatNode(nama, jabatan, kerugian);
+            root = tambah(root, baru);
+
+            Node* salinan = buatNode(nama, jabatan, kerugian);
+            aksiTerakhir.push("tambah");
+            dataTerakhir.push(salinan);
+
+            cout << "Data berhasil ditambahkan.\n";
+
+        } else if (pilih == 2) {
+            if (root == NULL) {
+                cout << "Tidak ada data untuk ditampilkan.\n";
+                continue;
+            }
+            cout << "\n--- Daftar Pelaku Korupsi (A-Z) ---\n";
+            tampilInorder(root);
+
+        } else if (pilih == 3) {
+            if (root == NULL) {
+                cout << "Tidak ada data untuk ditampilkan.\n";
+                continue;
+            }   
+            string nama;
+            cout << "Masukkan nama yang ingin dihapus: ";
+            getline(cin, nama);
+            Node* hapusData = NULL;
+            root = hapus(root, nama, hapusData);
+            if (hapusData != NULL) {
+                aksiTerakhir.push("hapus");
+                dataTerakhir.push(hapusData);
+                cout << "Data berhasil dihapus.\n";
+            } else {
+                cout << "Data tidak ditemukan.\n";
+            }
+
+        } else if (pilih == 4) {
+            undo();
+
+        } else if (pilih == 5) {
+            cout << "Terima kasih.\n";
+        } else {
+            cout << "Pilihan tidak valid.\n";
+        }
+
+    } while (pilih != 5);
+
+    return 0;
+}
